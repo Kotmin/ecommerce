@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: cqrs-es-sample-with-res_development
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "5432:5432"
+
+  postgres-test:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: cqrs-es-sample-with-res_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    ports:
+      - "5433:5432"
+
+  test:
+    build:
+      context: .
+      target: test
+    environment:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:secret@postgres:5432/cqrs-es-sample-with-res_test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -lc "cd rails_application &&
+                bin/rails db:prepare RAILS_ENV=test &&
+                cd /app &&
+                make test"
+
+  mut:
+    build:
+      context: .
+      target: mut
+    environment:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:secret@postgres:5432/cqrs-es-sample-with-res_test
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -lc "cd rails_application &&
+                bin/rails db:prepare RAILS_ENV=test &&
+                cd /app &&
+                make mutate"
